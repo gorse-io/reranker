@@ -300,10 +300,10 @@ def run_benchmark(
             or "mxbai" in model_name_lower
         ):
             outputs = model.score(
-                documents, queries
+                documents, queries, use_tqdm=False
             )  # or just texts if queries are empty
         else:
-            outputs = model.score(queries, documents)
+            outputs = model.score(queries, documents, use_tqdm=False)
 
         scores = [output.outputs.score for output in outputs]
 
