@@ -1,5 +1,6 @@
 import argparse
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,6 +35,30 @@ def resolve_model_dir(model: str) -> Path:
             )
         return model_path
     return Path(snapshot_download(repo_id=model, repo_type="model"))
+
+
+def safe_filename_part(value: str) -> str:
+    safe_value = re.sub(r"[^A-Za-z0-9._-]+", "_", value.strip())
+    safe_value = safe_value.strip("._")
+    return safe_value or "unknown"
+
+
+def metrics_output_path(dataset_name: str, model_name: str) -> Path:
+    model_path = Path(model_name).expanduser()
+    model_filename_part = model_path.name if model_path.exists() else model_name
+    filename = (
+        f"{safe_filename_part(dataset_name)}_"
+        f"{safe_filename_part(model_filename_part)}.csv"
+    )
+    return Path(filename)
+
+
+def save_user_metrics(metrics: pd.DataFrame, dataset_name: str, model_name: str) -> Path:
+    output_path = metrics_output_path(dataset_name, model_name)
+    metrics[["user_id", "auc", "positive", "negative"]].to_csv(
+        output_path, index=False
+    )
+    return output_path
 
 
 args = parse_args()
@@ -323,4 +348,6 @@ gauc, user_metrics = run_benchmark(
     max_model_len=args.max_model_len,
     model_name=args.model,
 )
+metrics_path = save_user_metrics(user_metrics, args.dataset, args.model)
 print(f"GAUC: {gauc:.6f}")
+print(f"Result:\t{metrics_path}")
