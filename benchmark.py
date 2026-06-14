@@ -8,6 +8,7 @@ import jinja2
 import pandas as pd
 import torch
 from huggingface_hub import snapshot_download
+from tqdm.auto import tqdm
 from vllm import LLM
 
 
@@ -243,7 +244,12 @@ def run_benchmark(
     total_weighted_auc = 0.0
     total_weight = 0
 
-    for user_id, (train, test) in dataset.user_splits.items():
+    progress = tqdm(
+        dataset.user_splits.items(),
+        total=len(dataset.user_splits),
+        unit="user",
+    )
+    for user_id, (train, test) in progress:
         test = test[test["item_id"].astype(str).isin(dataset.item_docs)]
         if test.empty:
             continue
@@ -324,8 +330,8 @@ def run_benchmark(
                 "negative": len(labels) - sum(labels),
             }
         )
-        print(
-            f"{len(user_metrics)}/{len(dataset.user_splits)}\tuser id: {user_id}, AUC={current_auc:.6f}, current GAUC={running_gauc:.6f}"
+        progress.set_postfix_str(
+            f"GAUC: {running_gauc:.6f}"
         )
 
     metrics = pd.DataFrame(user_metrics)

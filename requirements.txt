@@ -1,4 +1,5 @@
 huggingface_hub
 jinja2
 pandas
+tqdm
 vllm
