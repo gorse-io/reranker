@@ -1,5 +1,6 @@
 huggingface_hub
 jinja2
 pandas
+torch
 tqdm
 vllm
