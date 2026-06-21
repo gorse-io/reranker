@@ -13,6 +13,13 @@ from torch.utils.data import DataLoader, TensorDataset
 from tqdm.auto import tqdm
 
 
+def positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("--shot must be a positive integer.")
+    return parsed
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Factorization Machines benchmark")
     parser.add_argument("--batch_size", type=int, default=4096)
@@ -24,6 +31,12 @@ def parse_args():
     parser.add_argument("--learning_rate", type=float, default=0.01)
     parser.add_argument("--num_workers", type=int, default=0)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--shot",
+        type=positive_int,
+        default=None,
+        help="Limit training to each user's latest N training samples.",
+    )
     parser.add_argument("--weight_decay", type=float, default=1e-6)
     return parser.parse_args()
 
@@ -229,10 +242,16 @@ def run_benchmark(
     weight_decay: float,
     device: torch.device,
     num_workers: int,
+    shot: int | None,
 ) -> tuple[float, pd.DataFrame]:
     user_to_index, item_to_index = build_id_maps(dataset.feedback)
+    train_parts = []
+    for train, _ in dataset.user_splits.values():
+        if shot is not None:
+            train = train.tail(shot)
+        train_parts.append(train)
     train_feedback = pd.concat(
-        [train for train, _ in dataset.user_splits.values()],
+        train_parts,
         ignore_index=True,
     )
     train_features, train_labels = encode_feedback(
@@ -336,8 +355,11 @@ def main() -> None:
         weight_decay=args.weight_decay,
         device=device,
         num_workers=args.num_workers,
+        shot=args.shot,
     )
     model_name = f"fm_f{args.factors}_e{args.epochs}"
+    if args.shot is not None:
+        model_name = f"{model_name}_s{args.shot}"
     metrics_path = save_user_metrics(user_metrics, args.dataset, model_name)
     print(f"GAUC: {gauc:.6f}")
     print(f"Result:\t{metrics_path}")
